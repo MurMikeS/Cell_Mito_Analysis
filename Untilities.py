@@ -1,10 +1,12 @@
 ## Image segmentation and analysis from breast cancer cells for Mitochondria
 #
 #
-# Tzu-Hsi July 2024
+# Tzu-Hsi October 2024
 import os
-import glob
 import cv2
+import sys
+import glob
+import random
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -13,14 +15,41 @@ from skimage.measure import label, regionprops
 from scipy import ndimage
 from skimage.segmentation import watershed
 
+
+# Check the input file format
+def check_file_format(data_path):
+    img_format = os.listdir(data_path)
+    check_img = img_format[0]
+    if check_img.endswith('.png'):
+        imgformat = '.png'
+    elif check_img.endswith('.jpg'):
+        imgformat = '.jpg'
+    elif check_img.endswith('.jpeg'):
+        imgformat = '.jpeg'
+    elif check_img.endswith('.tiff'):
+        imgformat = '.tiff'
+    elif check_img.endswith('.tif'):
+        imgformat = '.tif'
+    else:
+        imgformat = ''
+
+    return imgformat
+
+# Read the input image data
 def Get_Image_Data(data_path, Sample_index, type):
-    search_pattern = os.path.join(data_path, Sample_index + '*_c{}_ORG.jpg'.format(type))
-    matching_files_org = glob.glob(search_pattern, recursive=True)
-    search_pattern = os.path.join(data_path, Sample_index + '*_c{}.jpg'.format(type))
-    matching_files_color = glob.glob(search_pattern, recursive=True)
+    imgformat = check_file_format(data_path)
+    if imgformat:
+        search_pattern = os.path.join(data_path, Sample_index + '*_c{}_ORG'.format(type) + imgformat)
+        matching_files_org = glob.glob(search_pattern, recursive=True)
+        search_pattern = os.path.join(data_path, Sample_index + '*_c{}'.format(type) + imgformat)
+        matching_files_color = glob.glob(search_pattern, recursive=True)
 
-    return matching_files_org, matching_files_color
+        return matching_files_org, matching_files_color
+    else:
+        print('Please ensure the file is in one of the following formats: .png, .jpg, .jpeg, .tif, or .tiff')
+        sys.exit()
 
+# Enhance the image intensity contrast
 def Brightness_Enhance(Img):
     hsv = cv2.cvtColor(Img, cv2.COLOR_BGR2HSV)
     h, s, v = cv2.split(hsv)
@@ -30,6 +59,7 @@ def Brightness_Enhance(Img):
 
     return BE_Img
 
+# Fill the hole
 def imfill_function(mask):
     im_floodfill = mask.copy()
     mask_new = np.zeros((mask.shape[0]+2, mask.shape[1]+2), dtype=np.uint8)
@@ -39,7 +69,8 @@ def imfill_function(mask):
 
     return im_out
 
-def Cell_Mask_Generate(cell_mask, cell_distance_set, element_region_size, cell_mask_ORG, cell_mask_contour,advanced_seg, save_sign, save_path, Sample_name):
+# Generate the cell mask
+def Cell_Mask_Generate(cell_mask, cell_distance_set, element_region_size,  cell_intensity_thresh, cell_mask_ORG, cell_mask_contour,advanced_seg, save_sign, save_path, Sample_name):
     # Morphological operations for initial noise remove
     cell_mask = 255 - cell_mask
     _, th_cell_mask = cv2.threshold(cell_mask, 0, 255, cv2.THRESH_OTSU + cv2.THRESH_BINARY)
@@ -86,7 +117,7 @@ def Cell_Mask_Generate(cell_mask, cell_distance_set, element_region_size, cell_m
             check_end_y = np.where(check_edge >= th_cell_mask.shape[1] - 12, 1, 0)
             tmp_label_intensity = cell_mask_ORG[Cell_labels == (i + 1)]
             check_intensity = np.max(tmp_label_intensity)
-            if check_intensity > 8:
+            if check_intensity > cell_intensity_thresh:
                 if np.sum(check_start) + np.sum(check_end_x) + np.sum(check_end_y) < 1:
                     new_th_cell_mask[Cell_labels == (i + 1)] = 255
 
@@ -109,6 +140,7 @@ def Cell_Mask_Generate(cell_mask, cell_distance_set, element_region_size, cell_m
 
     return th_cell_mask, separate_line
 
+# Generate the cell mask by using advanced segmentation method (Marker-Control watershed)
 def Advanced_Cell_Mask_Regenerate(new_mask, mos_distance_set, th_cell_mask, cell_mask_ORG, cell_mask_contour, save_sign, save_path, Sample_name):
 
     new_mask_cell = cv2.morphologyEx(new_mask, cv2.MORPH_OPEN, kernel=np.ones((3, 3), np.uint8), iterations=2)
@@ -174,7 +206,7 @@ def Advanced_Cell_Mask_Regenerate(new_mask, mos_distance_set, th_cell_mask, cell
 
     return th_cell_mask, new_mask, advanced_separate_line
 
-
+# Generate the Mito mask
 def Mito_Mask_Generate(mos_mask, th_cell_mask, separate_line, advanced_seg, save_sign, mos_distance_set, cell_mask_ORG, cell_mask_contour, save_path, Sample_name):
     # Generate the initial mos mask and assign the cell labels for removing non-target mos
     binary_threshold, image_result = cv2.threshold(mos_mask, 1, 255, cv2.THRESH_BINARY)
@@ -221,6 +253,7 @@ def Mito_Mask_Generate(mos_mask, th_cell_mask, separate_line, advanced_seg, save
 
     return image_result, new_mask, sep_new_mask, label_num
 
+# Analyze the Mito fragment information
 def Fragment_Analysis(new_mask, Frag_Area_set, sep_new_mask, label_num, mos_mask_contour, save_sign, save_path, Sample_name, image_result):
     frag_label_img = label(new_mask)
     frag_regions = regionprops(frag_label_img)
@@ -246,7 +279,7 @@ def Fragment_Analysis(new_mask, Frag_Area_set, sep_new_mask, label_num, mos_mask
 
     text_location = []
     for new_i in range(1, len(label_num)):
-        tmp_new_single_mask = (sep_new_mask == new_i)
+        tmp_new_single_mask = (sep_new_mask == label_num[new_i])
         tmp_new_single_mask = label(tmp_new_single_mask)
         tmp_new_single_region = regionprops(tmp_new_single_mask)
         tmp_min_top = 0
@@ -271,14 +304,14 @@ def Fragment_Analysis(new_mask, Frag_Area_set, sep_new_mask, label_num, mos_mask
 
     colors = plt.cm.jet(np.linspace(0,1, 256))
     colors = colors[:, :3] * 255
+    color_index = np.arange(colors.shape[0])
+    random.shuffle(color_index)
+    random.shuffle(color_index)
+    random.shuffle(color_index)
     color_setting = []
     for la_i in range(len(label_num)):
         if la_i > 0:
-            if len(label_num) < 5:
-                color = colors[(la_i*len(label_num)) % len(colors)].tolist()
-            else:
-                color = colors[(la_i*len(label_num)*8) % len(colors)].tolist()
-
+            color = colors[color_index[la_i]].tolist()
             color_setting.append(color)
             tmp_mos_mask = np.zeros(new_mask.shape, dtype=np.uint8)
             tmp_mos_mask[sep_new_mask == label_num[la_i]] = 255
@@ -334,6 +367,7 @@ def Fragment_Analysis(new_mask, Frag_Area_set, sep_new_mask, label_num, mos_mask
 
     return new_mask_Green, new_mask_Red, color_setting
 
+# Plot the Mito fragment information
 def Frag_Analysis_Plot(mos_mask, sep_new_mask, new_mask_Red, label_num, color_setting, save_sign, save_path, Sample_name):
     frag_int = mos_mask[new_mask_Red == 255]
     sep_cell_only_frag = np.multiply(sep_new_mask, new_mask_Red/255)
@@ -403,6 +437,7 @@ def Frag_Analysis_Plot(mos_mask, sep_new_mask, new_mask_Red, label_num, color_se
 
     # Plot the unfragmentation analysis ================================================================================
 
+# Plot the Mito unfragment information
 def UnFrag_Analysis_Plot(mos_mask, sep_new_mask, new_mask_Green, label_num, frag_number_per_cell, color_setting, save_sign, save_path, Sample_name):
 
     unfrag_int = mos_mask[new_mask_Green == 255]
@@ -465,6 +500,7 @@ def UnFrag_Analysis_Plot(mos_mask, sep_new_mask, new_mask_Green, label_num, frag
 
     return unfrag_int, unfrag_area_per_cell, unfrag_number_per_cell, unfrag_int_per_cell
 
+# Plot the intensity comparison between frag and unfrag
 def Intensity_Comparison(frag_int, unfrag_int, save_sign, save_path, Sample_name):
     all_intensity = [np.mean(frag_int), np.mean(unfrag_int)]
     all_x = np.arange(len(all_intensity))
@@ -496,6 +532,7 @@ def main(all_data_path, **kwargs):
             Frag_Area_set: Integer, the treshold value to select which belongs to Fragment, default=1500
             cell_distance_set: Integer, how far the cell can be considered for segmentation, default=50
             mos_distance_set: Integer, how far the mito can be considered for segmentation, default=100
+            cell_intensity_thresh: Integer, the threshold value of intensity for cell region identification, default=8
 
     Return: Save the results in the save path (Result Folder) if save_sign is True
 
@@ -507,6 +544,7 @@ def main(all_data_path, **kwargs):
     Frag_Area_set = kwargs.get('Frag_Area_set', 1500)
     cell_distance_set = kwargs.get('cell_distance_set', 50)
     mos_distance_set = kwargs.get('mos_distance_set', 100)
+    cell_intensity_thresh = kwargs.get('cell_intensity_thresh', 8)
 
     Sample_list = os.listdir(all_data_path)
     for s_i in range(len(Sample_list)):
@@ -515,8 +553,9 @@ def main(all_data_path, **kwargs):
         save_path = 'Results/' + Sample_list[s_i] + '/'
         if not os.path.isdir('Results/'):
             os.mkdir('Results/')
-        if not os.path.isdir(save_path):
-            os.mkdir(save_path)
+        if save_sign:
+            if not os.path.isdir(save_path):
+                os.mkdir(save_path)
 
         matching_files_cell_org, matching_files_cell_color = Get_Image_Data(data_path, Sample_list[s_i], 1)
         cell_mask = cv2.imread(matching_files_cell_org[0])
@@ -541,7 +580,7 @@ def main(all_data_path, **kwargs):
 
         print('Processing Cell Marker of {} ============================================================================'.format(Sample_list[s_i]))
 
-        th_cell_mask, separate_line = Cell_Mask_Generate(cell_mask, cell_distance_set, element_region_size, cell_mask_ORG, cell_mask_contour,advanced_seg, save_sign, save_path, Sample_list[s_i])
+        th_cell_mask, separate_line = Cell_Mask_Generate(cell_mask, cell_distance_set, element_region_size,  cell_intensity_thresh, cell_mask_ORG, cell_mask_contour,advanced_seg, save_sign, save_path, Sample_list[s_i])
 
         # Selected the mos regions =====================================================================================
 
