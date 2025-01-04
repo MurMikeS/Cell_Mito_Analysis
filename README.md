@@ -11,7 +11,7 @@
 * Each staining sample image should be saved separately in its respective staining channel.
   * Channel 1 (saved as `file_name + '_c1_ORG'`) is used for cell segmentation.
   * Channel 3 (saved as `file_name + '_c3_ORG'`) is used for Mito segmentation.
-  * Channel 4 (saved as `file_name + '_c3_ORG'`) is used for Nuclei segmentation.
+  * Channel 4 (saved as `file_name + '_c4_ORG'`) is used for Nuclei segmentation.
   * If you have channel images with corresponding staining colors (e.g. DAPI is blue, or Neutrophil is magenta), please save them as `file_name + '_cX'`, where `X` represents the channel number.
 * Set the file path in the Main.py and then directly run it.Please review the parameter settings first.
 * All the figure results will be saved in the Results Folder.
