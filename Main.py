@@ -1,6 +1,6 @@
 # Main Function
 
-# TH Mike Song October 2024
+# TH Mike Song Dec 2024
 
 from Untilities import *
 
@@ -21,7 +21,8 @@ Input:
                       default=False
         element_region_size = Integer, the treshold value to remove small area, default=2500
         Frag_Area_set: Integer, the treshold value to select which belongs to Fragment, default=1500
-        cell_distance_set: Integer, how far the cell can be considered for segmentation, default=50
+        Suitable_Nuclei_distance_set: Integer, how far the nuclear centroid obtained by distance map can be considered for segmentation, default=80
+        cell_distance_set: Integer, how far the cell obtained by distance map can be considered for segmentation, default=100
         mos_distance_set: Integer, how far the mito can be considered for segmentation, default=100
         cell_intensity_thresh: Integer, the threshold value of intensity for cell region identification, default=8
 
