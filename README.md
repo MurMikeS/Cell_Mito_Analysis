@@ -7,7 +7,7 @@
 * Simple Mito Analysis and save the results. 
 
 ## Note
-* This si a small application of cell image analysis for Mito analysis
+* This is an application (will be with GUI) of cell image analysis for Mito analysis.
 * Each staining sample image should be saved separately in its respective staining channel.
   * Channel 1 (saved as `file_name + '_c1_ORG'`) is used for cell segmentation.
   * Channel 3 (saved as `file_name + '_c3_ORG'`) is used for Mito segmentation.
@@ -15,7 +15,7 @@
   * If you have channel images with corresponding staining colors (e.g. DAPI is blue, or Neutrophil is magenta), please save them as `file_name + '_cX'`, where `X` represents the channel number.
 * Set the file path in the Main.py and then directly run it.Please review the parameter settings first.
 * All the figure results will be saved in the Results Folder.
-* If the channel of nuclei doesn't exist, please tick the box of Advanced Watershed Segmentation (i.e. set the parameter `advanced_seg` as `True`)
+* If the channel of nuclei doesn't exist, please tick the box of Advanced Watershed Segmentation (i.e. set the parameter `advanced_seg` as `True`).
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
